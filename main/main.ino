@@ -59,6 +59,7 @@ void loop() {
   int enc_data[buffer_array_size];
   
   // encrypt data
+  //
   
   
   // display encrypted data
