@@ -104,6 +104,9 @@ void loop() {
           break;
       }
     } else {
+      // reset digit's shifting 
+      display_boundry_low = 0;
+      display_boundry_high = 16;
       // move digits in array and add newest at index 0
       for (int k = BUFFER_ARRAY_SIZE - 2; k >= 0; k--) {
         int l = k;
