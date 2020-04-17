@@ -46,32 +46,31 @@ void setup() {
   delay(1000);
   lcd.clear();
 }
+
 #define ROTOR_SIZE 10
-const int rotA[5][ROTOR_SIZE] = { // TODO a kurła miało być pięknie
-  {1, 3, 0, 7, 5, 4, 8, 2, 6, 9},
-  {1, 9, 7, 6, 2, 3, 8, 0, 5, 4},
-  {8, 7, 3, 2, 5, 9, 1, 6, 4, 0},
-  {6, 3, 4, 5, 1, 9, 2, 8, 0, 7},
-  {1, 2, 3, 9, 5, 6, 8, 7, 4, 0}
+const int rotA[4][ROTOR_SIZE] = { // TODO a kurła miało być pięknie
+  {1, 2, 3, 4, 5, 6, 7, 8, 9, 0},
+  {4, 0, 6, 3, 2, 1, 9, 7, 5, 8},
+  {4, 3, 1, 5, 7, 0, 9, 8, 2, 6},
+  {4, 0, 1, 5, 2, 9, 3, 6, 7, 8},
 };
-const int rotB[5][ROTOR_SIZE] = {
-  {5, 9, 2, 6, 3, 8, 7, 4, 1, 0},
-  {7, 2, 9, 0, 3, 4, 6, 5, 8, 1},
-  {6, 5, 2, 7, 8, 1, 9, 4, 3, 0},
-  {3, 9, 5, 6, 0, 4, 2, 1, 8, 7},
-  {6, 4, 8, 0, 1, 5, 3, 2, 9, 7}
+const int rotB[4][ROTOR_SIZE] = {
+  {3, 4, 5, 6, 7, 8, 9, 0, 1, 2},
+  {5, 0, 3, 1, 2, 4, 6, 9, 7, 8},
+  {2, 4, 9, 1, 8, 3, 5, 7, 6, 0},
+  {1, 0, 5, 3, 9, 4, 8, 6, 2, 7},
 };
-const int rotC[5][ROTOR_SIZE] = {
-  {8, 7, 0, 6, 4, 1, 9, 5, 2, 3},
-  {2, 5, 4, 1, 9, 6, 8, 7, 0, 3},
-  {6, 3, 0, 2, 4, 5, 9, 7, 1, 8},
-  {1, 0, 7, 6, 4, 2, 8, 9, 3, 5},
-  {0, 6, 9, 5, 1, 2, 3, 4, 7, 8}
+const int rotC[4][ROTOR_SIZE] = {
+  {6, 7, 8, 9, 0, 1, 2, 3, 4, 5},
+  {1, 3, 4, 2, 5, 0, 6, 8, 9, 7},
+  {9, 3, 0, 5, 1, 6, 8, 7, 4, 2},
+  {1, 0, 8, 3, 5, 2, 7, 9, 6, 4},
 };
 
 char crypt(char x, int a, int b, int c, int mode[]) { // ENCRYPTION ALGORITHM
-
-
+  // correct mode if not chosen
+  for (int c=0; c<3;c++)
+    if (mode[c] == 10) mode[c] = 0;
   // offset rotors by a,b,c
   int tmpA[ROTOR_SIZE];
   for (int it = 0; it < ROTOR_SIZE; it++) {
@@ -107,40 +106,17 @@ char crypt(char x, int a, int b, int c, int mode[]) { // ENCRYPTION ALGORITHM
   }
 
   // encrypt value x
-  int r1 = tmpA[x-48];
+  int r1 = tmpA[x - 48]; // ASCII offset
   int r2 = tmpB[r1];
   int r3 = tmpC[r2];
   int r3rot = tmpC[ROTOR_SIZE - 1 - r2];
   int r2rot = tmpB[r3rot];
   int y = tmpA[r2rot];
   return char(y + 48); // ASCII offset
-
-
-
-  /*
-    int output = -1;
-    int input = int(x);
-    // do very complicated math algorithm magic
-    a = a % 10;
-    b = b % 5;
-    c = c % 2;
-    output = (input + a) % 10 + (input + b) % 10 + (input + c) % 10;
-
-    while (true) {
-    if (output > 9) { // recreate if out of [0,9] range
-      int dec = output;
-      int multiplier = dec / 10;
-      output = output - 10 * multiplier;
-      return char(output + 48); // it's ascii so add 48
-    } else
-      return char(output + 48);
-    }*/
-
-
 }
 
 void mainFun(int mode[]) {
-  
+
   // display key
   lcd.setCursor(1, 0);
   lcd.print("A:");
@@ -231,7 +207,7 @@ void mainFun(int mode[]) {
 
 
 bool flag = false;
-int mode[] = {0, 0, 0};
+int mode[] = {10, 10, 10};
 int digit_counter = 0;
 
 void loop() {
@@ -240,19 +216,20 @@ void loop() {
     lcd.setCursor(1, 0);
     lcd.print("Pick 3 numbers");
     lcd.setCursor(0, 1);
-    lcd.print("[0,4]:");
+    lcd.print("[1,4]:");
     char digit = keyboard.getKey();
 
     if (digit) {
-      if (digit == '0' || digit == '1' || digit == '2' || digit == '3' || digit == '4') {
-        mode[digit_counter] = int(digit)-48;
+      if (digit == '1' || digit == '2' || digit == '3' || digit == '4') {
+        mode[digit_counter] = int(digit) - 49; // ASCII offset + input is [1,4] -> result is [0,3] 
         digit_counter++;
       }
     }
     int j = 15;
     for (int i = 0; i < 3; i++) {
       lcd.setCursor(j, 1);
-      int num = lcd.print(mode[i]);
+      if (mode[i] == 10) lcd.print(" ");
+      else lcd.print(mode[i]+1);
       j--;
     }
     if (digit_counter > 2)
