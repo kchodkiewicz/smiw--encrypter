@@ -1,19 +1,15 @@
 #include <LiquidCrystal.h>
 #include <Keypad.h>
 
+
+// -------------------------------------------------------
+// ------------------------ SETUP ------------------------
 // LCD setup
 LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
-int display_boundry_low = 0;
-int display_boundry_high = 16;
 
 // array setup
-#define BUFFER_ARRAY_SIZE 50 // amount of digits that are stored in memory
-char enc_data[BUFFER_ARRAY_SIZE]; // array containing 50 last characters
-
-// initialize potentiometer variables
-int pot_A = 0; int val_A = 0;
-int pot_B = 0; int val_B = 0;
-int pot_C = 0; int val_C = 0;
+#define BUFFER_ARRAY_SIZE 500 // amount of digits that are stored in memory
+char enc_data[BUFFER_ARRAY_SIZE]; // array containing <BUFFER_ARRAY_SIZE> last characters
 
 // keyboard setup
 const byte ROWS = 4;
@@ -28,8 +24,6 @@ char keys[ROWS][COLS] = {
   {'7', '8', '9'},
   {'*', '0', '#'}
 };
-
-bool is_setup_complete = false;
 
 Keypad keyboard = Keypad(makeKeymap(keys), row_pins, col_pins, ROWS, COLS);
 
@@ -47,73 +41,68 @@ void setup() {
   lcd.clear();
 }
 
+// ------------------------------------------------------------
+// ------------------------ ENCRYPTION ------------------------
 #define ROTOR_SIZE 10
-const int rotA[4][ROTOR_SIZE] = { // TODO a kurła miało być pięknie
-  {1, 2, 3, 4, 5, 6, 7, 8, 9, 0},
-  {4, 0, 6, 3, 2, 1, 9, 7, 5, 8},
-  {4, 3, 1, 5, 7, 0, 9, 8, 2, 6},
-  {4, 0, 1, 5, 2, 9, 3, 6, 7, 8},
+const int rotor[6][ROTOR_SIZE][2] = {
+  {{0, 5}, {1, 8}, {2, 3}, {3, 2}, {4, 7}, {5, 0}, {6, 9}, {7, 4}, {8, 1}, {9, 6}},
+  {{0, 5}, {1, 8}, {2, 3}, {3, 7}, {4, 9}, {5, 0}, {6, 2}, {7, 4}, {8, 1}, {9, 6}},
+  {{0, 8}, {1, 2}, {2, 6}, {3, 9}, {4, 3}, {5, 4}, {6, 7}, {7, 1}, {8, 0}, {9, 5}},
+  {{0, 1}, {1, 0}, {2, 8}, {3, 5}, {4, 3}, {5, 2}, {6, 7}, {7, 9}, {8, 6}, {9, 4}},
+  {{0, 9}, {1, 3}, {2, 0}, {3, 5}, {4, 1}, {5, 6}, {6, 8}, {7, 4}, {8, 7}, {9, 2}},
+  {{0, 7}, {1, 8}, {2, 0}, {3, 6}, {4, 3}, {5, 2}, {6, 5}, {7, 4}, {8, 9}, {9, 1}}
 };
-const int rotB[4][ROTOR_SIZE] = {
-  {3, 4, 5, 6, 7, 8, 9, 0, 1, 2},
-  {5, 0, 3, 1, 2, 4, 6, 9, 7, 8},
-  {2, 4, 9, 1, 8, 3, 5, 7, 6, 0},
-  {1, 0, 5, 3, 9, 4, 8, 6, 2, 7},
-};
-const int rotC[4][ROTOR_SIZE] = {
-  {6, 7, 8, 9, 0, 1, 2, 3, 4, 5},
-  {1, 3, 4, 2, 5, 0, 6, 8, 9, 7},
-  {9, 3, 0, 5, 1, 6, 8, 7, 4, 2},
-  {1, 0, 8, 3, 5, 2, 7, 9, 6, 4},
-};
-
-char crypt(char x, int a, int b, int c, int mode[]) { // ENCRYPTION ALGORITHM
-  // correct mode if not chosen
-  for (int c=0; c<3;c++)
-    if (mode[c] == 10) mode[c] = 0;
-  // offset rotors by a,b,c
-  int tmpA[ROTOR_SIZE];
-  for (int it = 0; it < ROTOR_SIZE; it++) {
-    tmpA[it] = rotA[mode[0]][it];
+/*
+ * move value according to rotors
+ */
+int rotate(int rotNo, int input, int shift, int mode) {
+  if (mode == 1) {
+    input = (input + shift) % ROTOR_SIZE;
+    return rotor[rotNo][input][1];
+  } else {
+    for (int i = 0; i < ROTOR_SIZE; i++) {
+      if (input == rotor[rotNo][i][1]) {
+        int output = (rotor[rotNo][i][0] - shift);
+        while (output < 0) 
+          output = ROTOR_SIZE + output;
+        output = output % ROTOR_SIZE;
+        return output;
+      }
+    }
   }
-  for (int i = 0; i < a; i++) {
-    int holder = tmpA[0];
-    for (int j = 0; j < ROTOR_SIZE - 1; j++)
-      tmpA[j] = tmpA[j + 1];
-    tmpA[ROTOR_SIZE - 1] = holder;
-  }
-
-  int tmpB[ROTOR_SIZE];
-  for (int it = 0; it < ROTOR_SIZE; it++) {
-    tmpB[it] = rotB[mode[1]][it];
-  }
-  for (int i = 0; i < b; i++) {
-    int holder = tmpB[0];
-    for (int j = 0; j < ROTOR_SIZE - 1; j++)
-      tmpB[j] = tmpB[j + 1];
-    tmpB[ROTOR_SIZE - 1] = holder;
-  }
-
-  int tmpC[ROTOR_SIZE];
-  for (int it = 0; it < ROTOR_SIZE; it++) {
-    tmpC[it] = rotC[mode[2]][it];
-  }
-  for (int i = 0; i < c; i++) {
-    int holder = tmpC[0];
-    for (int j = 0; j < ROTOR_SIZE - 1; j++)
-      tmpC[j] = tmpC[j + 1];
-    tmpC[ROTOR_SIZE - 1] = holder;
-  }
-
-  // encrypt value x
-  int r1 = tmpA[x - 48]; // ASCII offset
-  int r2 = tmpB[r1];
-  int r3 = tmpC[r2];
-  int r3rot = tmpC[ROTOR_SIZE - 1 - r2];
-  int r2rot = tmpB[r3rot];
-  int y = tmpA[r2rot];
-  return char(y + 48); // ASCII offset
 }
+/*
+ * reverse the path of return
+ */
+int reverse(int input) {
+  input = (input) % ROTOR_SIZE;
+  return rotor[0][input][1];
+}
+/*
+ * change value
+ */
+char crypt(char x, int a, int b, int c, int rot_arr[]) {
+  int in = (x - 48); // ASCII offset
+  //encrypt data
+  in = rotate(rot_arr[0], in, a, 1);
+  in = rotate(rot_arr[1], in, b, 1);
+  in = rotate(rot_arr[2], in, c, 1);
+  in = reverse(in);
+  in = rotate(rot_arr[2], in, c, 0);
+  in = rotate(rot_arr[1], in, b, 0);
+  in = rotate(rot_arr[0], in, a, 0);
+  return char(in + 48); // ASCII offset
+}
+
+// ------------------------------------------------------
+// ------------------------ MAIN ------------------------
+// initialize potentiometer variables
+int pot_A = 0; int val_A = 0;
+int pot_B = 0; int val_B = 0;
+int pot_C = 0; int val_C = 0;
+
+int display_boundry_low = 0;
+int display_boundry_high = 16;
 
 void mainFun(int mode[]) {
 
@@ -205,43 +194,60 @@ void mainFun(int mode[]) {
   }
 }
 
-
+// ------------------------------------------------------
+// ------------------------ LOOP ------------------------
 bool flag = false;
-int mode[] = {10, 10, 10};
+int mode[] = {0, 0, 0};
 int digit_counter = 0;
+bool is_setup_complete = false;
 
 void loop() {
   if (!is_setup_complete) {
-    //while (!is_setup_complete) {
-    lcd.setCursor(1, 0);
-    lcd.print("Pick 3 numbers");
+    lcd.setCursor(0, 0);
+    lcd.print("3 unique numbers");
     lcd.setCursor(0, 1);
-    lcd.print("[1,4]:");
+    lcd.print("[1,5]:");
     char digit = keyboard.getKey();
 
     if (digit) {
-      if (digit == '1' || digit == '2' || digit == '3' || digit == '4') {
-        mode[digit_counter] = int(digit) - 49; // ASCII offset + input is [1,4] -> result is [0,3] 
-        digit_counter++;
-      }
+      if (digit == '1' || digit == '2' || digit == '3' || digit == '4' || digit == '5') {
+        // check if unique numbers
+        if (((int(digit) - 48) != mode[0]) && ((int(digit) - 48) != mode[1]) && ((int(digit) - 48) != mode[2])) {
+          mode[digit_counter] = int(digit) - 48; // ASCII offset
+          digit_counter++;
+        } else {
+          // if not unique -> print error
+          lcd.setCursor(0, 0);
+          lcd.print("Incorrect number");
+          delay(750);
+        }
+      } else {
+          // if number out of range -> print error
+          lcd.setCursor(0, 0);
+          lcd.print("Incorrect number");
+          delay(750);
+        }
     }
-    int j = 15;
+    int j = 13;
     for (int i = 0; i < 3; i++) {
       lcd.setCursor(j, 1);
-      if (mode[i] == 10) lcd.print(" ");
-      else lcd.print(mode[i]+1);
-      j--;
+      if (mode[i] == 0) lcd.print("_");
+      else lcd.print(mode[i]);
+      j++;
     }
     if (digit_counter > 2)
       flag = true;
-    //}
 
     if (flag == true) {
       delay(750);
       lcd.clear();
+      // if rotors not chosen -> set default values
+      if (mode[0] == 0 || mode[1] == 0 || mode[2] == 0)
+        mode[0] = 1,
+                  mode[1] = 2,
+                            mode[2] = 3;
       is_setup_complete = true;
     }
-
   } else {
     mainFun(mode);
   }
